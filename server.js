@@ -16,6 +16,20 @@ const express = require('express');
     // import express from 'express';
 const app = express();
 
+
+// [ socket.io 문법** ] 서버<->유저 양방향 통신가능 WebSocket
+// [ socket.io 문법** ] 서버 ->유저 일방적 통신가능 SSE (Sever Sent Event)
+// [ socket.io 문법** ] npm install socket.io 
+// [ socket.io 문법** ] ★★★ WebSocket 은 서버 뿐만 아니라 사용자 HTML 에도 설정(socket.io CDN 방식 URL 링크로 연동) 해야 함
+// [ socket.io 문법** ] ★★★ CDN 방식 URL 링크로 HTML단에 연동하려는 socket.io 버전은 서버에 설치한 버전(즉, npm install socket.io)과 동일해야 함(package.json 에서 확인 가능 / 220628 기준 내 경우는 "socket.io": "^4.5.1")
+// [ socket.io 문법** ] ★★★ CDN 방식 socket.io URL 링크로 HTML단에 연결할 때 body 태그 최하단부에 적었더니 인식 불가(즉, io is not defined)이므로 head 태그 내애 CDN 링크 URL 첨부요
+// <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.1/socket.io.js" integrity="sha512-9mpsATI0KClwt+xVZfbcf2lJ8IFBAwsubJ6mI3rtULwyM3fBmQFzj0It4tGqxLOGQwGfJdk/G+fANnxfq9/cew==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+// [ socket.io 문법** ] 브라우저 호환성 문제 없는 socket.io 로 WebSocket 사용함 (Vanilla Javascript 코드로도 WebSocket 열 수 있지만 브라우저 호환성 문제 있음)
+// [ socket.io 문법** ] socket.io 라이브러리 호출 및 사용 코드는 const app = express(); 코드 하단에 위치해야 함
+const http = require('http').createServer(app);
+const { Server } = require("socket.io");
+const io = new Server(http);
+
 // morgan 라이브러리 첨부와 사용
     // import morgan from 'morgan';
 const morgan = require('morgan');
@@ -82,7 +96,19 @@ MongoClient.connect(process.env.MYDBURL, {useUnifiedTopology:true}, function(에
 
   // MongoDB 연결 성공하면 이어서 Server를 연결해주세요
   // listen(서버 띄울 포트번호, 띄운 후 실행할 코드)
-  app.listen(process.env.PORT, function(){
+
+  // [ socket.io 문법** ] 서버<->유저 양방향 통신가능 WebSocket
+  // [ socket.io 문법** ] 서버 ->유저 일방적 통신가능 SSE (Sever Sent Event)
+  // [ socket.io 문법** ] npm install socket.io 
+  // [ socket.io 문법** ] 브라우저 호환성 문제 없는 socket.io 로 WebSocket 사용함 (Vanilla Javascript 코드로도 WebSocket 열 수 있지만 브라우저 호환성 문제 있음)
+  // [ socket.io 문법** ] ★★★ WebSocket 은 서버 뿐만 아니라 사용자 HTML 에도 설정(socket.io CDN 방식 URL 링크로 연동) 해야 함
+  // [ socket.io 문법** ] ★★★ CDN 방식 URL 링크로 HTML단에 연동하려는 socket.io 버전은 서버에 설치한 버전(즉, npm install socket.io)과 동일해야 함(package.json 에서 확인 가능 / 220628 기준 내 경우는 "socket.io": "^4.5.1")
+  // [ socket.io 문법** ] ★★★ CDN 방식 socket.io URL 링크로 HTML단에 연결할 때 body 태그 최하단부에 적었더니 인식 불가(즉, io is not defined)이므로 head 태그 내애 CDN 링크 URL 첨부요
+  // <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.1/socket.io.js" integrity="sha512-9mpsATI0KClwt+xVZfbcf2lJ8IFBAwsubJ6mI3rtULwyM3fBmQFzj0It4tGqxLOGQwGfJdk/G+fANnxfq9/cew==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    // [ socket.io 문법** ] socket.io 라이브러리 호출 및 사용 코드는 const app = express(); 코드 하단에 위치해야 함
+  // [ socket.io 문법** ] ★★★ 코드 상단부에서 socket.io 호출하면서 변수를 const http = require('http').createServer(app); 라고 지정했으므로 기존 app.listen() 표기를 http.listen() 표기로 변경해야 함
+  http.listen(process.env.PORT, function(){
+        // app.listen(process.env.PORT, function(){
   console.log(`listening on ${process.env.PORT}`)
 })
 })
@@ -816,3 +842,24 @@ app.get('/message/:clickedChatroomId', 로그인했는지검사하는미들웨�
 
   })
 });
+
+app.get('/socket', function(요청, 응답){
+  응답.render('socket.ejs');
+})
+
+// [ socket.io 문법** ] 서버<->유저 양방향 통신가능 WebSocket
+// [ socket.io 문법** ] 서버 ->유저 일방적 통신가능 SSE (Sever Sent Event)
+// [ socket.io 문법** ] Websocket 접속시 서버가 뭔가 실행하고 싶으면 io.on('connection', function(){}) 코드를 단독으로 기재요(즉, 라우터 내부로 본 코드 넣지 않을 것)
+// [ socket.io 문법** ] 이벤트 리스너의 일종인 io.on('connection', function(){}) 코드는 누가 웹소켓 접속하면 내부 코드를 실행해줌
+// [ socket.io 문법** ] ★★★ CDN 방식 socket.io URL 링크로 HTML단에 연결할 때 body 태그 최하단부에 적었더니 인식 불가(즉, io is not defined)이므로 head 태그 내애 CDN 링크 URL 첨부요
+io.on('connection', function(socket){
+  console.log('server.js ---- io.on() 통해서 서버/사용자간 WebSocket 접속됨');
+
+  // [ socket.io 문법** ] HTML 단에서 socket.emit('이벤트명작명','메시지') 코드로 서버에 실시간 메시지 전송함
+  // [ socket.io 문법** ] 서버단(즉, server.js) 에서는 HTML단에서작명한이벤트명 으로 메시지 들어오면 socket.on('HTML단에서작명한이벤트명', function(dataUserSent){}) 함수의 내부 코드를 실행함
+  socket.on('user-send', function(dataUserSent){
+    console.log('server.js --- io.on() --- dataUserSent', dataUserSent);
+  })
+
+})
+
