@@ -659,9 +659,9 @@ app.post('/write', function(요청, 응답){
     // 작성페이지에서 submit 이후에 응답.render('list.ejs');코드로는 오류나고 응답.redirect('/list'); 코드로는 리스트페이지로 이동 성공??
       // 응답.render('list.ejs');
       // 응답.send('/add로 전송완료')
-      console.log('리다이렉트 직전')
+      console.log('리다이렉트 직전');
       응답.redirect('/list');
-      console.log('리다이렉트 직후')
+      console.log('리다이렉트 직후');
 })
 
 // JQuery Min 버전(X: Slim Min) CDN 연동 후 JQuery 문법에 기반하여 AJAX 요청 구현(HTML에서 DELETE요청)
@@ -697,7 +697,7 @@ app.delete('/delete', function(요청, 응답){
     // [ MongoDB 문법 ] 현실적으로는 삭제 실패시 nodejs 터미널에 에러는 뜨지 않고 결과만 0 으로 나옴
     console.log('app.delete /delete ---- deleteOne함수 에러 여부', 에러);
     if(결과){ console.log('app.delete /delete ---- 결과.result.n --- 삭제된 결과물 수(게시물 소유자가 아니면 삭제 승인되지 않아 0개로 표시됨) ------', 결과.result.n)};
-  })
+  });
 });
 
 // [ Mongo DB 문법^^ ] 형변환을 위한 ObjectId() 문법을 사용하려면 코드 상단부에 const { ObjectId } = require('mongodb'); 기능 사용 명시요
@@ -711,10 +711,13 @@ app.post('/chatroom', 로그인했는지검사하는미들웨어, function(요�
     title: 'aaaaa',
     // [ Mongo DB 문법^^ ] String 형태인 요청.body.당한사람id 값(즉, "62b9216e37eec08ddc82a0bd")을 Object 형으로 변경요
     // [ Mongo DB 문법^^ ] 형변환을 위한 ObjectId() 문법을 사용하려면 코드 상단부에 const { ObjectId } = require('mongodb'); 기능 사용 명시요
+    // ★★★★★★ 긴급 해결요 ★★★★★★★
+    // [ MongoDB 문법^^ Change Stream ] DB변동사항 실시간 감시해 브라우저단에 표시해 주도록 만든 상태인 것은 좋은 일
+    // [ MongoDB 문법^^ Change Stream ] 그러나 chatroomCol 에 두 명의 사용자가 참여했음에도 유일한 한 개의 방이 아니라 당한사람 입장, 건사람 입장에서 각각 방을 생성시켜 동작하는 상황이라 해결요(다행인 것은 DB에도 브라우저에도 송신한 메시지들은 다 반영이 되는 상황)
     member: [ObjectId(요청.body.당한사람id), 요청.user._id],
             // member: [요청.body.당한사람id, 요청.user._id],
     date: new Date()
-  }
+  };
 
   // [ Mongo DB 문법^^ ] insertOne 쿼리문 내에 콜백함수 작성하는 대신에 .insertOne().then() 문법으로 대체 사용 가능
   db.collection('chatroomCol').insertOne(개설할채팅방정보).then((결과)=>{
@@ -723,8 +726,8 @@ app.post('/chatroom', 로그인했는지검사하는미들웨어, function(요�
     응답.send('채팅방개설성공');
 
     console.log(`채팅방개설성공 - ${요청.user._id} 사용자가 ${요청.body.당한사람id} 사용자에게 `);
-  })
-})
+  });
+});
 
 // [ Express 문법^^ ] /chat 접속시 채팅방 내부 페이지인 chat.ejs 보여주기
 app.get('/chat', 로그인했는지검사하는미들웨어, function(요청, 응답){
@@ -733,8 +736,8 @@ app.get('/chat', 로그인했는지검사하는미들웨어, function(요청, �
   // [ Mongo DB 문법^^ ] array (즉, 배열 형태로 생긴 member: [어쩌구, 어쩌구] ) 내부에서 한 개의 속성에 대해 검색하는 경우에 한하여 별도 쿼리문 활용하지 않고 .find({ member: 요청.user._id }) 형태로 쿼리 가능
   db.collection('chatroomCol').find({ member: 요청.user._id }).toArray().then((결과)=>{
     응답.render('chat.ejs', { myChatroomList: 결과 });
-  })
-})
+  });
+});
 
 // [ Express 문법^^ ] chat.ejs 에서 전송 버튼 클릭하여 최소정보송신용꾸러미(즉, 송신하려는메시지 와 지금누른채팅방id) 를 $.post('/message', 최소정보송신용꾸러미).then(() => {}) 코드를 통해 서버로 전송함
 // [ Express 문법^^ ] 메시지송신자id /  날짜 값 / chat.ejs 로부터 받은 송신하려는메시지 / chat.ejs 로부터 받은 지금누른채팅방id 를 messageCol 에 저장함
@@ -752,4 +755,64 @@ app.post('/message', 로그인했는지검사하는미들웨어, function(요청
     응답.send('messageCol 에 송신발저장용꾸러미 저장 성공');
     console.log('messageCol 에 송신발저장용꾸러미 저장 성공');
   })
-})
+});
+
+// [ Web API 문법^^ ] 실시간으로 DB 데이터 계속 가져오는 법 
+// [ Web API 문법^^ ] - 비추 - 1초마다 GET 요청 계속 보내기 (서버는 요청 많으면 힘들어함 / DDos 공격과 동일한 방식)
+// [ Web API 문법^^ ] - 강추 - 서버와 사용자간 실시간 소통채널(SSE, Sever Sent Events) 열기(즉, GET 요청 없이도 서버가 일방적으로 데이터 실시간 전송 가능)
+// [ Web API 문법^^ 단계03 서버->유저 ] GET 요청임에도 서버로 데이터 전송할 수 있는 방법 2가지는 (1) [채택] URL 파리미터(즉, 통상 :id / 여기서는 :clickedChatroomId) 또는 (2) Query String
+// [ Web API 문법^^ 단계03 서버->유저 ] chat.ejs 에서 GET 요청으로 eventSource = new EventSource('/message/' + 지금누른채팅방id); 코드 실행하면 server.js 의 라우팅 app.get('/message/:clickedChatroomId', 표기생략) 에 적용된 URL 파리미터 기법을 통해 지금누른채팅방id 값을 받아올 수 있음
+app.get('/message/:clickedChatroomId', 로그인했는지검사하는미들웨어, function(요청, 응답){
+  // [ Web API 문법 ^^ 단계01 유저->서버 ] HTTP 요청시 서버에 몰래 전달되는 정보들(즉, 유저의 언어 / 브라우저 정보 / 가진 쿠키 / 어디서 왔나 등)은 Header 라는 공간에 담겨있음
+  응답.writeHead(200, {
+    "Connection": "keep-alive",
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+  });
+
+    // [ Web API 문법 & Mongo DB 문법^^ ] messageCol 내에서 parent 항목의 값이 지금누른채팅방id 인 전체 데이터를 검색하여 응답.write(event: ) 와 응답.write(data: ) 데이터를 사용자에게 전달하기
+    db.collection('messageCol').find({ parent: 요청.params.clickedChatroomId }).toArray().then((결과) => {
+
+    // [ Web API 문법^^ 단계02 서버->유저 ] ★★★ SSE(Sever Sent Events) 기법으로 실시간으로 DB 데이터 가져올 때 서버에서 사용자에게 데이터 전송하기 위한 전용 문법
+    // [ Web API 문법^^ 단계03 서버->유저 ] server.js 의 01단계(유저->서버) 02단계(서버->유저) 데이터전송 이후에 chat.ejs 의 eventSource = new EventSource('/어쩌구'); 코드까지 실행(서버->유저)되면 실시간 소통채널 입장완료  
+    응답.write('event: test\n'); // 'event: 보낼데이터이름\n'
+
+    // [ Web API 문법 & Mongo DB 문법^^ ] 서버에서 실시간 전송시(SSE, Sever Sent Events) 문자자료만 전송 가능
+    // [ Web API 문법 & Mongo DB 문법^^ ] DB 쿼리문에 .toArray() 속성이 반영되어 처리된 쿼리 결과 값에는 [ {}, {}, {} ] 형태(즉, 일명 객체 배열 / 배열 안의 객체 형태)의 값이 들어있음
+    // [ Web API 문법 & Mongo DB 문법^^ ] ★★★ Object 자료형 또는 Array 자료형 자료를 서버에서 실시간 전송(SSE, Sever Sent Events) 하려면 JSON.stringify() 함수를 통해 문자자료형으로 형변환 해야 정상적으로 전송가능함
+    // [ Web API 문법 & Mongo DB 문법^^ ] ★★★ JSON 자료형은 Object 또는 Array 자료형에 따옴표를 친 형태라서 문자취급 받음
+    응답.write(`data: ${JSON.stringify(결과)}\n\n`); // 'data: 보낼데이터\n\n'
+    // 응답.write('data:' + JSON.stringify(결과) + '\n\n'); // 'data: 보낼데이터\n\n'
+
+    // ★★★★★★ 긴급 해결요 ★★★★★★★
+    // [ MongoDB 문법^^ Change Stream ] DB변동사항 실시간 감시해 브라우저단에 표시해 주도록 만든 상태인 것은 좋은 일
+    // [ MongoDB 문법^^ Change Stream ] 그러나 chatroomCol 에 두 명의 사용자가 참여했음에도 유일한 한 개의 방이 아니라 당한사람 입장, 건사람 입장에서 각각 방을 생성시켜 동작하는 상황이라 해결요(다행인 것은 DB에도 브라우저에도 송신한 메시지들은 다 반영이 되는 상황)
+
+    // [ MongoDB 문법^^ Change Stream ] 소통채널 접속시 일회성 검색 및 일회성 검색결과 전송하는 작업처리에 그쳐서 사용자가 새로 송신한 메시지(즉, class="chat-content" 내의 class="chat-box" 형태)가 브라우저 채팅창 화면에 보여지지 않음
+    // [ MongoDB 문법^^ Change Stream ] ★★★ DB 는 수동적이라서 DB가 업데이트 되면 자동으로 사용자에게 데이터를 전송해 주지 못함
+    // [ MongoDB 문법^^ Change Stream ] ★★★ MongoDB Change Stream 기능을 활용해 DB 변동사항 발생시 즉시 서버에 알려주도록 만들어야 사용자에게 실시간 데이터 전송이 실현될 수 있음    
+    const pipeline = [ 
+      // [ MongoDB 문법^^ Change Stream ] collection 안의 특정 document 만 감시하고 싶으면 { $match: { fullDocument.키 = 값 } } 내부에 원하는 조건 설정요
+      // [ MongoDB 문법^^ Change Stream ] 예- parent 게시물이 요청.parmas.clickedChatroomId 인 document 만 감시하려면 { $match: { 'fullDocument.parent': 요청.params.clickedChatroomId }} 라고 설정요
+      {
+        //  $match: {} 
+        $match: { 'fullDocument.parent': 요청.params.clickedChatroomId }
+      }];
+
+    const collection = db.collection('messageCol');
+    // [ MongoDB 문법^^ Change Stream ] .watch() 함수를 사용하면 DB (즉, 여기서는 messageCol) 에 대해 실시간 감시 가능해짐
+    const changeStream = collection.watch(pipeline);
+    // [ MongoDB 문법^^ Change Stream ] .watch() 함수를 사용하여 DB (즉, 여기서는 messageCol) 변동사항(즉, 추가/수정/삭제)이 감지되면 changeStream.on('change', () => {}) 함수의 코드가 실행됨
+    changeStream.on('change', (result) => {
+      // [ MongoDB 문법^^ Change Stream ] 변경된 document 출력해보려면 result.fullDocument
+      console.log(result.fullDocument);
+      // [ MongoDB 문법^^ Change Stream ] changeStream.on() 함수의 result 파라미터 값 자체에는 DB변동사항에 대한 매우 상세한 여러가지 내용이 담겨 있음
+      // [ MongoDB 문법^^ Change Stream ] 변동사항 값이 담겨있는 result.fullDocument 값을 객체 배열 형태(즉, 서버가 document 다 찾아서 보낼 때의 모습인 [ { ], { }, { } ] 형태)로 표기하여 JSON.stringify() 통해 문자 자료형으로 형변환시킨 후 응답.write(`data: `) 를 통해 사용자 브라우저로 데이터를 보냄
+      // [ MongoDB 문법^^ Change Stream ] ★★★ 요 이슈 해결! -> 소통채널 접속시 일회성 검색 및 일회성 검색결과 전송하는 작업처리에 그쳐서 사용자가 새로 송신한 메시지(즉, class="chat-content" 내의 class="chat-box" 형태)가 브라우저 채팅창 화면에 보여지지 않음
+      응답.write('event: test\n');
+      응답.write(`data: ${JSON.stringify( [ result.fullDocument ] )}\n\n`);
+
+    });
+
+  })
+});
