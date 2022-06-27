@@ -813,6 +813,9 @@ app.get('/message/:clickedChatroomId', 로그인했는지검사하는미들웨�
     // ★★★★★★ 긴급 해결요 ★★★★★★★
     // [ MongoDB 문법^^ Change Stream ] DB변동사항 실시간 감시해 브라우저단에 표시해 주도록 만든 상태인 것은 좋은 일
     // [ MongoDB 문법^^ Change Stream ] 그러나 chatroomCol 에 두 명의 사용자가 참여했음에도 유일한 한 개의 방이 아니라 당한사람 입장, 건사람 입장에서 각각 방을 생성시켜 동작하는 상황이라 해결요(다행인 것은 DB에도 브라우저에도 송신한 메시지들은 다 반영이 되는 상황)
+    // ★★★★★★★★★ 버그 이슈1: 두 브라우저 콘솔에서 양쪽 모두 잘 찍히긴 하는데 한쪽에서 왜 초반에 먹통?(node js 콘솔로그는 누락없이 다 찍히는 것으로 보아 브라우저의 어떤 특성에 기인?)
+    // ★★★★★★★★★ 버그 이슈2: 두 시크릿 브라우저 간에 메시지 보낼수록 같은 메시지값이 여러번 찍히는데 그 갯수가 증가하면서 찍히는 이유?
+    // ★★★★★★★★★ 버그 이슈3: DB 저장(chatroomCol / messageCol) 은 안되는 실시간 메시지 전송 기법인건가? 라이브러리 메뉴얼에 별도 DB연동 기법이 있을수도?
 
     // [ MongoDB 문법^^ Change Stream ] 소통채널 접속시 일회성 검색 및 일회성 검색결과 전송하는 작업처리에 그쳐서 사용자가 새로 송신한 메시지(즉, class="chat-content" 내의 class="chat-box" 형태)가 브라우저 채팅창 화면에 보여지지 않음
     // [ MongoDB 문법^^ Change Stream ] ★★★ DB 는 수동적이라서 DB가 업데이트 되면 자동으로 사용자에게 데이터를 전송해 주지 못함
@@ -852,14 +855,44 @@ app.get('/socket', function(요청, 응답){
 // [ socket.io 문법** ] Websocket 접속시 서버가 뭔가 실행하고 싶으면 io.on('connection', function(){}) 코드를 단독으로 기재요(즉, 라우터 내부로 본 코드 넣지 않을 것)
 // [ socket.io 문법** ] 이벤트 리스너의 일종인 io.on('connection', function(){}) 코드는 누가 웹소켓 접속하면 내부 코드를 실행해줌
 // [ socket.io 문법** ] ★★★ CDN 방식 socket.io URL 링크로 HTML단에 연결할 때 body 태그 최하단부에 적었더니 인식 불가(즉, io is not defined)이므로 head 태그 내애 CDN 링크 URL 첨부요
+// [ socket.io 문법** ] ★★★ DB 저장(chatroomCol / messageCol) 은 안되는 실시간 메시지 전송 기법인건가? 라이브러리 메뉴얼에 별도 DB연동 기법이 있을수도?
 io.on('connection', function(socket){
+  // [ socket.io 문법** ] HTML단으로부터 서버로 수신된 socket 파라미터 에는 웹소켓 접속한 사용자에 대한 모든 정보(Header 내에 있음 / 쿠키 등도 포함)가 담겨 있음
   console.log('server.js ---- io.on() 통해서 서버/사용자간 WebSocket 접속됨');
 
-  // [ socket.io 문법** ] HTML 단에서 socket.emit('이벤트명작명','메시지') 코드로 서버에 실시간 메시지 전송함
-  // [ socket.io 문법** ] 서버단(즉, server.js) 에서는 HTML단에서작명한이벤트명 으로 메시지 들어오면 socket.on('HTML단에서작명한이벤트명', function(dataUserSent){}) 함수의 내부 코드를 실행함
+  // [ socket.io 문법** 양방향 중 유저->서버 ] HTML 단에서 socket.emit('이벤트명작명','메시지') 코드로 서버에 실시간 메시지 전송함
+  socket.on('room-1-send', function(dataUserSentForRoom1){
+    // [ socket.io 문법** ] io.to('ioServerRoom-1').emit(); 코드로 특정 채팅방(여기서는 ioServerRoom-1)에 들어간 사용자들에게만 메시지 전송됨
+    io.to('ioServerRoom-1').emit('broadcast', dataUserSentForRoom1);
+  });
+
+  socket.on('join-room-1', function(reqUserSent){
+    // [ socket.io 문법** ] socket.join('방이름') 코드로 채팅방 생성하고 입장시키기
+    socket.join('ioServerRoom-1');
+  });
+  
+  // [ socket.io 문법** 양방향 중 유저->서버 ] 서버단(즉, server.js) 에서는 HTML단에서작명한이벤트명 으로 메시지 들어오면 socket.on('HTML단에서작명한이벤트명', function(dataUserSent){}) 함수의 내부 코드를 실행함
   socket.on('user-send', function(dataUserSent){
+    
+    // [ socket.io 문법** 양방향 중 서버->유저 ] 서버단(즉, server.js) 에서 HTML단으로 실시간 메시지 보내려면 io.emit('이벤트명작명(관습적으로는 broadcast)', '메시지') 코드 사용
+    // [ socket.io 문법** 양방향 중 서버->유저 ] io.emit() 동작방식 특징은 소켓에 참여하고 있는 모든 사용자에게 메시지를 보내줌(즉, broadcast)
+    // [ socket.io 문법** 양방향 중 서버->유저 ] ★★★ 따라서 io.emit('broadcast', dataUserSent); 코드는 어느 사용자가 dataUserSent 에 담아 서버로 실시간 전송한 메시지를 io.emit() 동작특성인 broadcast 방식으로 모든 소켓참여자에게 전송해줌(즉, 접속자간 단체채팅방 완성)
+    // ★★★★★★ 긴급 해결요 ★★★★★★★
+    // [ MongoDB 문법^^ Change Stream ] DB변동사항 실시간 감시해 브라우저단에 표시해 주도록 만든 상태인 것은 좋은 일
+    // [ MongoDB 문법^^ Change Stream ] 그러나 chatroomCol 에 두 명의 사용자가 참여했음에도 유일한 한 개의 방이 아니라 당한사람 입장, 건사람 입장에서 각각 방을 생성시켜 동작하는 상황이라 해결요(다행인 것은 DB에도 브라우저에도 송신한 메시지들은 다 반영이 되는 상황)
+    // ★★★★★★★★★ 버그 이슈1: 두 브라우저 콘솔에서 양쪽 모두 잘 찍히긴 하는데 한쪽에서 왜 초반에 먹통?(node js 콘솔로그는 누락없이 다 찍히는 것으로 보아 브라우저의 어떤 특성에 기인?)
+    // ★★★★★★★★★ 버그 이슈2: 두 시크릿 브라우저 간에 메시지 보낼수록 같은 메시지값이 여러번 찍히는데 그 갯수가 증가하면서 찍히는 이유?
+    // ★★★★★★★★★ 버그 이슈3: DB 저장(chatroomCol / messageCol) 은 안되는 실시간 메시지 전송 기법인건가? 라이브러리 메뉴얼에 별도 DB연동 기법이 있을수도?
     console.log('server.js --- io.on() --- dataUserSent', dataUserSent);
-  })
+    
+    // [ socket.io 문법** ] 코드용도 - 단체채팅방
+    io.emit('broadcast', dataUserSent);    
+    // [ socket.io 문법** ] 코드용도 - 서버-유저1명 간 단독 소통
+    // [ socket.io 문법** ] HTML단으로부터 서버로 수신된 socket 파라미터 에는 웹소켓 접속한 사용자에 대한 모든 정보(Header 내에 있음 / 쿠키 등도 포함)가 담겨 있음
+    // [ socket.io 문법** ] 그중 socket.id 에는 웹소켓 사용자 식별값이 들어있어 사용자 구분하는 용도로 그 값을 사용할 수 있음
+    // io.to(socket.id).emit('broadcast', dataUserSent);
+    
+  });
 
 })
 
